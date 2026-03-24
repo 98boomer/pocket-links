@@ -1,0 +1,106 @@
+﻿using System;
+using System.Diagnostics;
+using System.Threading;
+using System.Windows;
+using Hardcodet.Wpf.TaskbarNotification;
+using PocketLinks.Helpers;
+using PocketLinks.Services;
+using PocketLinks.ViewModels;
+using PocketLinks.Views;
+
+namespace PocketLinks;
+
+public partial class App : Application
+{
+    private static Mutex? _mutex;
+    private TaskbarIcon? _trayIcon;
+    private LinkStorageService? _storage;
+    private MainViewModel? _viewModel;
+    private PopupWindow? _popup;
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        // Single-instance guard
+        const string mutexName = "PocketLinks_SingleInstance_Mutex";
+        _mutex = new Mutex(true, mutexName, out bool createdNew);
+
+        if (!createdNew)
+        {
+            MessageBox.Show("Pocket Links is already running.", "Pocket Links",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            Shutdown();
+            return;
+        }
+
+        base.OnStartup(e);
+
+        // Sync accent color with Windows system theme
+        ThemeHelper.SyncAccentColor(this);
+        ThemeHelper.ApplyThemeColors(this, ThemeHelper.IsSystemDarkMode());
+
+        // Initialize services
+        _storage = new LinkStorageService();
+        _viewModel = new MainViewModel(_storage);
+
+        // Initialize tray icon (defined in App.xaml resources)
+        _trayIcon = (TaskbarIcon)FindResource("TrayIcon");
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _trayIcon?.Dispose();
+        _storage?.Dispose();
+        _mutex?.ReleaseMutex();
+        _mutex?.Dispose();
+        base.OnExit(e);
+    }
+
+    private void ShowPopup()
+    {
+        if (_popup == null || !_popup.IsLoaded)
+        {
+            _popup = new PopupWindow { DataContext = _viewModel };
+        }
+
+        _viewModel?.RefreshCommand.Execute(null);
+        _popup.ShowAtTray();
+    }
+
+    private void TrayIcon_TrayLeftMouseUp(object sender, RoutedEventArgs e)
+    {
+        ShowPopup();
+    }
+
+    private void Open_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPopup();
+    }
+
+    private void AddLink_Click(object sender, RoutedEventArgs e)
+    {
+        if (_storage == null) return;
+
+        var dialog = new AddEditLinkDialog(_storage);
+        dialog.ShowDialog();
+
+        if (dialog.ViewModel.DialogResult)
+            _viewModel?.RefreshCommand.Execute(null);
+    }
+
+    private void OpenFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_storage == null) return;
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = _storage.RootPath,
+            UseShellExecute = true
+        });
+    }
+
+    private void Exit_Click(object sender, RoutedEventArgs e)
+    {
+        Shutdown();
+    }
+}
+
