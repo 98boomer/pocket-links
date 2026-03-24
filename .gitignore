@@ -22,6 +22,7 @@ bld/
 
 ## Publish output
 publish/
+publish-fdd/
 
 ## IDE
 .idea/
