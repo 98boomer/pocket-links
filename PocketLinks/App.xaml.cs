@@ -2,7 +2,9 @@
 using System.Diagnostics;
 using System.Threading;
 using System.Windows;
+using System.Windows.Controls;
 using Hardcodet.Wpf.TaskbarNotification;
+using Microsoft.Win32;
 using PocketLinks.Helpers;
 using PocketLinks.Services;
 using PocketLinks.ViewModels;
@@ -44,6 +46,13 @@ public partial class App : Application
 
         // Initialize tray icon (defined in App.xaml resources)
         _trayIcon = (TaskbarIcon)FindResource("TrayIcon");
+
+        // Sync the "Start with Windows" checkbox with actual registry state
+        if (_trayIcon.ContextMenu?.Items.OfType<MenuItem>()
+                .FirstOrDefault(m => m.Name == "StartupMenuItem") is MenuItem mi)
+        {
+            mi.IsChecked = IsStartupEnabled();
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -101,6 +110,34 @@ public partial class App : Application
     private void Exit_Click(object sender, RoutedEventArgs e)
     {
         Shutdown();
+    }
+
+    private const string StartupRegKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string StartupValueName = "PocketLinks";
+
+    private static bool IsStartupEnabled()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(StartupRegKey);
+        return key?.GetValue(StartupValueName) != null;
+    }
+
+    private void Startup_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem mi) return;
+
+        using var key = Registry.CurrentUser.OpenSubKey(StartupRegKey, writable: true);
+        if (key == null) return;
+
+        if (mi.IsChecked)
+        {
+            var exePath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName;
+            if (exePath != null)
+                key.SetValue(StartupValueName, $"\"{exePath}\"");
+        }
+        else
+        {
+            key.DeleteValue(StartupValueName, throwOnMissingValue: false);
+        }
     }
 }
 

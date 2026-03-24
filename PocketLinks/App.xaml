@@ -19,6 +19,7 @@
                         <MenuItem Header="Add Link..." Click="AddLink_Click"/>
                         <Separator/>
                         <MenuItem Header="Open Links Folder" Click="OpenFolder_Click"/>
+                        <MenuItem Header="Start with Windows" x:Name="StartupMenuItem" IsCheckable="True" Click="Startup_Click"/>
                         <Separator/>
                         <MenuItem Header="Exit" Click="Exit_Click"/>
                     </ContextMenu>
