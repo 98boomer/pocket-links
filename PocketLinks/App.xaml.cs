@@ -66,7 +66,8 @@ public partial class App : Application
 
     private void ShowPopup()
     {
-        if (_popup == null || !_popup.IsLoaded)
+        // Recreate the window if it was closed or the native handle is gone
+        if (_popup == null || !_popup.IsHandleValid)
         {
             _popup = new PopupWindow { DataContext = _viewModel };
         }
